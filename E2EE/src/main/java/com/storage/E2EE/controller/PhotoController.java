@@ -8,12 +8,14 @@ import org.springframework.http.ResponseEntity;
 
 import com.storage.E2EE.services.PhotoService;
 import com.storage.E2EE.models.Photos;
+import com.storage.E2EE.dto.ErrorResponse;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/secure/photos")
-@CrossOrigin
+@CrossOrigin(origins = { "http://localhost:5173" }, allowedHeaders = "*", methods = { RequestMethod.GET,
+        RequestMethod.POST, RequestMethod.DELETE, RequestMethod.OPTIONS })
 public class PhotoController {
 
     @Autowired
@@ -21,24 +23,33 @@ public class PhotoController {
 
     // Already exists: upload(), download()
     @PostMapping("/upload")
-    public String upload(@RequestParam("file") MultipartFile file) throws Exception {
+    public ResponseEntity<?> upload(@RequestParam("file") MultipartFile file) throws Exception {
 
         System.out.println("AUTH CHECK → " + SecurityContextHolder.getContext().getAuthentication());
+        System.out.println("worked till 1");
 
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         String username;
+        System.out.println("worked till 2");
 
         if (principal instanceof org.springframework.security.core.userdetails.UserDetails userDetails) {
             username = userDetails.getUsername();
         } else {
             username = principal.toString();
         }
+        System.out.println("worked till 3");
 
+        // Check if filename already exists for this user
+        String filename = file.getOriginalFilename();
+        if (photoService.filenameExists(username, filename)) {
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse(
+                            "File with name '" + filename + "' already exists. Please rename the file and try again."));
+        }
 
         photoService.savePhoto(username, file);
-        return "Uploaded";
+        return ResponseEntity.ok("Uploaded");
     }
-
 
     @GetMapping("/list")
     public ResponseEntity<List<Photos>> listUserPhotos() {
@@ -51,7 +62,8 @@ public class PhotoController {
         String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         boolean deleted = photoService.deletePhoto(username, id);
 
-        if (deleted) return ResponseEntity.ok("Deleted");
+        if (deleted)
+            return ResponseEntity.ok("Deleted");
         return ResponseEntity.status(403).body("Not allowed");
     }
 }

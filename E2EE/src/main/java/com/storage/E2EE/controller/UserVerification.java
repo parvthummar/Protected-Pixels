@@ -17,41 +17,52 @@ public class UserVerification {
     private UserRepositoryService userRepositoryService;
 
     @PostMapping("/signup")
-    public ResponseEntity<?> registration(@RequestBody SignupRequest req){
+    public ResponseEntity<?> registration(@RequestBody SignupRequest req) {
         try {
             userRepositoryService.signup(req);
-            return ResponseEntity.ok().build();
+            return ResponseEntity.ok(new SuccessResponse("Account created successfully"));
         } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(ex.getMessage());
+            // Return proper JSON error response for duplicate username or validation errors
+            return ResponseEntity.badRequest().body(new ErrorResponse(ex.getMessage()));
+        } catch (Exception ex) {
+            // Catch any other unexpected errors
+            return ResponseEntity.status(500)
+                    .body(new ErrorResponse("An unexpected error occurred. Please try again."));
         }
     }
 
-    // Step 1 of login: client asks for encrypted blobs by username
     @PostMapping("/signin")
-    public ResponseEntity<?> login(@RequestBody SigninRequest req){
+    public ResponseEntity<?> login(@RequestBody SigninRequest req) {
         try {
             SigninResponse resp = userRepositoryService.signin(req.getUsername());
             return ResponseEntity.ok(resp);
         } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(ex.getMessage());
+            // Return proper JSON error response for user not found
+            return ResponseEntity.badRequest().body(new ErrorResponse(ex.getMessage()));
+        } catch (Exception ex) {
+            // Catch any other unexpected errors
+            return ResponseEntity.status(500)
+                    .body(new ErrorResponse("An unexpected error occurred. Please try again."));
         }
     }
 
     // Step 2 of login: client proves it by sending decrypted verification key
     // @PostMapping("/verify")
     // public ResponseEntity<VerifyResponse> verify(@RequestBody VerifyRequest req){
-    //     boolean ok = userRepositoryService.verify(req.getUsername(), req.getVerificationKey());
-    //     if (ok) {
-    //         return ResponseEntity.ok(new VerifyResponse(true, "verified"));
-    //     }
-    //     return ResponseEntity.status(401).body(new VerifyResponse(false, "invalid verification key"));
+    // boolean ok = userRepositoryService.verify(req.getUsername(),
+    // req.getVerificationKey());
+    // if (ok) {
+    // return ResponseEntity.ok(new VerifyResponse(true, "verified"));
+    // }
+    // return ResponseEntity.status(401).body(new VerifyResponse(false, "invalid
+    // verification key"));
     // }
 
     @Autowired
     private JwtService jwtService;
 
     @PostMapping("/verify")
-    public ResponseEntity<VerifyResponse> verify(@RequestBody VerifyRequest req){
+    public ResponseEntity<VerifyResponse> verify(@RequestBody VerifyRequest req) {
         boolean ok = userRepositoryService.verify(req.getUsername(), req.getVerificationKey());
 
         if (ok) {

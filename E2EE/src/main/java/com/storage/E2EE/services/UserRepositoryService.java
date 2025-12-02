@@ -25,7 +25,7 @@ public class UserRepositoryService {
         u.setEmail(req.getEmail());
         u.setEnc_masterkey(req.getEnc_masterkey());
         u.setEnc_verificationkey(req.getEnc_verificationkey());
-        u.setPlain_verificationkey(req.getPlain_verificationkey()); // stored as-is per your design
+        u.setPlain_verificationkey(req.getPlain_verificationkey()); 
 
         userRepository.save(u);
     }
@@ -44,7 +44,6 @@ public class UserRepositoryService {
         Users u = userRepository.findByUsername(username);
         if (u == null) return false;
 
-        // Constant-time comparison to reduce timing side-channels
         return constantTimeEquals(
             u.getPlain_verificationkey(),
             verificationKeyCandidate

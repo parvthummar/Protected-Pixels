@@ -19,6 +19,11 @@ public class PhotoService {
     private PhotoRepository photoRepository;
 
     // Already exists:
+    // Check if filename exists for user
+    public boolean filenameExists(String username, String filename) {
+        return photoRepository.existsByOwnerUsernameAndFilename(username, filename);
+    }
+
     // savePhoto(...)
     // getPhoto(...)
 
@@ -28,13 +33,16 @@ public class PhotoService {
 
     public boolean deletePhoto(String username, Long id) {
         Photos p = photoRepository.findById(id).orElse(null);
-        if (p == null) return false;
+        if (p == null)
+            return false;
 
         // Prevent deleting someone else's file
-        if (!p.getOwnerUsername().equals(username)) return false;
+        if (!p.getOwnerUsername().equals(username))
+            return false;
 
         File file = new File(p.getStoragePath());
-        if (file.exists()) file.delete();
+        if (file.exists())
+            file.delete();
 
         photoRepository.delete(p);
         return true;
@@ -43,7 +51,8 @@ public class PhotoService {
     public void savePhoto(String username, MultipartFile file) throws Exception {
         String folder = "uploads/" + username;
         File dir = new File(folder);
-        if (!dir.exists()) dir.mkdirs();
+        if (!dir.exists())
+            dir.mkdirs();
 
         String filePath = folder + "/" + file.getOriginalFilename();
         Files.write(Paths.get(filePath), file.getBytes());

@@ -7,5 +7,5 @@ import lombok.Data;
 @AllArgsConstructor
 public class VerifyResponse {
     private boolean success;
-    private String token; // rename message → token
+    private String token; 
 }
