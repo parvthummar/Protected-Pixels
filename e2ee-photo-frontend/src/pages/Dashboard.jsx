@@ -15,6 +15,8 @@ function Dashboard() {
   const [photos, setPhotos] = useState([]);
   const [loadingPhotos, setLoadingPhotos] = useState(true);
   const [downloadingFile, setDownloadingFile] = useState(null);
+  const [previewModal, setPreviewModal] = useState({ isOpen: false, photo: null, imageUrl: null });
+  const [loadingPreview, setLoadingPreview] = useState(false);
   const fileInputRef = useRef(null);
 
   // Redirect if not authenticated
@@ -219,6 +221,67 @@ function Dashboard() {
     }
   };
 
+  const handlePreview = async (photo) => {
+    setLoadingPreview(true);
+    setPreviewModal({ isOpen: true, photo, imageUrl: null });
+    setError('');
+
+    try {
+      // Fetch encrypted file from server
+      console.log('Fetching encrypted file for preview:', photo.filename);
+      const encryptedData = await downloadPhoto(photo.filename, token);
+
+      // Decrypt file with master key
+      console.log('Decrypting file...');
+      const decryptedData = await decryptFile(encryptedData, masterKey);
+
+      // Determine file type
+      const extension = photo.filename.split('.').pop().toLowerCase();
+      const mimeTypes = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'webp': 'image/webp',
+        'svg': 'image/svg+xml'
+      };
+      const mimeType = mimeTypes[extension] || 'image/jpeg';
+
+      // Create blob and URL
+      const blob = new Blob([decryptedData], { type: mimeType });
+      const imageUrl = window.URL.createObjectURL(blob);
+
+      setPreviewModal({ isOpen: true, photo, imageUrl });
+      console.log('Preview ready');
+    } catch (err) {
+      console.error('Preview error:', err);
+      setError(err.message || 'Failed to load preview. Please try again.');
+      setPreviewModal({ isOpen: false, photo: null, imageUrl: null });
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  const closePreview = () => {
+    if (previewModal.imageUrl) {
+      window.URL.revokeObjectURL(previewModal.imageUrl);
+    }
+    setPreviewModal({ isOpen: false, photo: null, imageUrl: null });
+  };
+
+  const downloadFromPreview = () => {
+    if (previewModal.imageUrl && previewModal.photo) {
+      const link = document.createElement('a');
+      link.href = previewModal.imageUrl;
+      link.download = previewModal.photo.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setSuccess(`${previewModal.photo.filename} downloaded successfully!`);
+      setTimeout(() => setSuccess(''), 3000);
+    }
+  };
+
   return (
     <div className="dashboard-page">
       {/* Header */}
@@ -346,6 +409,13 @@ function Dashboard() {
                         <td className="file-size">{formatFileSize(photo.fileSize)}</td>
                         <td className="file-actions">
                           <button
+                            onClick={() => handlePreview(photo)}
+                            className="btn-preview"
+                            title="Preview file"
+                          >
+                            👁️ Preview
+                          </button>
+                          <button
                             onClick={() => handleDownload(photo.filename)}
                             disabled={downloadingFile === photo.filename}
                             className="btn-download"
@@ -372,6 +442,40 @@ function Dashboard() {
           </section>
         </div>
       </main>
+
+      {/* Preview Modal */}
+      {previewModal.isOpen && (
+        <div className="modal-overlay" onClick={closePreview}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{previewModal.photo?.filename}</h3>
+              <button onClick={closePreview} className="modal-close">✕</button>
+            </div>
+            <div className="modal-body">
+              {loadingPreview ? (
+                <div className="modal-loading">
+                  <div className="spinner-large"></div>
+                  <p>Decrypting image...</p>
+                </div>
+              ) : previewModal.imageUrl ? (
+                <img 
+                  src={previewModal.imageUrl} 
+                  alt={previewModal.photo?.filename}
+                  className="preview-image"
+                />
+              ) : null}
+            </div>
+            <div className="modal-footer">
+              <button onClick={downloadFromPreview} className="btn btn-primary">
+                ⬇️ Download
+              </button>
+              <button onClick={closePreview} className="btn btn-ghost">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
