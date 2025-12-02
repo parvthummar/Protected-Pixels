@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { encryptFile, isImageFile } from '../utils/fileEncryption';
-import { uploadPhoto, listPhotos } from '../services/photoService';
+import { encryptFile, isImageFile, decryptFile } from '../utils/fileEncryption';
+import { uploadPhoto, listPhotos, downloadPhoto } from '../services/photoService';
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -14,6 +14,7 @@ function Dashboard() {
   const [success, setSuccess] = useState('');
   const [photos, setPhotos] = useState([]);
   const [loadingPhotos, setLoadingPhotos] = useState(true);
+  const [downloadingFile, setDownloadingFile] = useState(null);
   const fileInputRef = useRef(null);
 
   // Redirect if not authenticated
@@ -163,6 +164,61 @@ function Dashboard() {
     return `${date.getDate()} ${months[date.getMonth()]}`;
   };
 
+  const handleDownload = async (filename) => {
+    setDownloadingFile(filename);
+    setError('');
+
+    try {
+      // Step 1: Fetch encrypted file from server
+      console.log('Downloading encrypted file:', filename);
+      const encryptedData = await downloadPhoto(filename, token);
+      console.log('Encrypted file downloaded, size:', encryptedData.byteLength, 'bytes');
+
+      // Step 2: Decrypt file with master key
+      console.log('Decrypting file with master key...');
+      const decryptedData = await decryptFile(encryptedData, masterKey);
+      console.log('File decrypted successfully, size:', decryptedData.byteLength, 'bytes');
+      
+      // Step 3: Determine file type from filename extension
+      const extension = filename.split('.').pop().toLowerCase();
+      const mimeTypes = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'webp': 'image/webp',
+        'svg': 'image/svg+xml'
+      };
+      const mimeType = mimeTypes[extension] || 'application/octet-stream';
+      
+      // Step 4: Create blob from decrypted data
+      const blob = new Blob([decryptedData], { type: mimeType });
+      
+      // Step 5: Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      console.log('File downloaded successfully');
+      setSuccess(`${filename} downloaded and decrypted successfully!`);
+      
+      setTimeout(() => {
+        setSuccess('');
+      }, 3000);
+
+    } catch (err) {
+      console.error('Download error:', err);
+      setError(err.message || 'Failed to download file. Please try again.');
+    } finally {
+      setDownloadingFile(null);
+    }
+  };
+
   return (
     <div className="dashboard-page">
       {/* Header */}
@@ -272,6 +328,7 @@ function Dashboard() {
                       <th>File Name</th>
                       <th>Uploaded By</th>
                       <th>Size</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -287,6 +344,25 @@ function Dashboard() {
                           {photo.ownerUsername}
                         </td>
                         <td className="file-size">{formatFileSize(photo.fileSize)}</td>
+                        <td className="file-actions">
+                          <button
+                            onClick={() => handleDownload(photo.filename)}
+                            disabled={downloadingFile === photo.filename}
+                            className="btn-download"
+                            title="Download file"
+                          >
+                            {downloadingFile === photo.filename ? (
+                              <>
+                                <span className="spinner-small"></span>
+                                Downloading...
+                              </>
+                            ) : (
+                              <>
+                                ⬇️ Download
+                              </>
+                            )}
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

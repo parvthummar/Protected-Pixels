@@ -51,6 +51,27 @@ public class PhotoController {
         return ResponseEntity.ok("Uploaded");
     }
 
+    @GetMapping("/download/{filename}")
+    public ResponseEntity<?> downloadFile(@PathVariable String filename) {
+        try {
+            String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+            byte[] fileData = photoService.getFile(username, filename);
+
+            if (fileData == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            return ResponseEntity.ok()
+                    .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+                    .body(fileData);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(new ErrorResponse("Failed to download file: " + e.getMessage()));
+        }
+    }
+
     @GetMapping("/list")
     public ResponseEntity<List<Photos>> listUserPhotos() {
         String username = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();

@@ -40,10 +40,16 @@ export async function encryptFile(file, masterKey) {
             fileBuffer
         );
 
-        // Convert encrypted data to Blob
-        const encryptedBlob = new Blob([encryptedBuffer], { type: 'application/octet-stream' });
+        // Prepend IV to encrypted data (IV is 12 bytes)
+        // This way we can extract it during decryption
+        const combined = new Uint8Array(12 + encryptedBuffer.byteLength);
+        combined.set(iv, 0);
+        combined.set(new Uint8Array(encryptedBuffer), 12);
 
-        // Convert IV to base64 for transmission
+        // Convert to Blob
+        const encryptedBlob = new Blob([combined], { type: 'application/octet-stream' });
+
+        // Convert IV to base64 for logging/debugging
         const ivBase64 = btoa(String.fromCharCode(...iv));
 
         return {
@@ -59,13 +65,21 @@ export async function encryptFile(file, masterKey) {
 
 /**
  * Decrypt a file using the master key
- * @param {ArrayBuffer} encryptedData - Encrypted file data
+ * @param {ArrayBuffer} encryptedDataWithIV - Encrypted file data with IV prepended
  * @param {string} masterKey - Base64-encoded master key
- * @param {string} ivBase64 - Base64-encoded IV
  * @returns {Promise<ArrayBuffer>} Decrypted file data
  */
-export async function decryptFile(encryptedData, masterKey, ivBase64) {
+export async function decryptFile(encryptedDataWithIV, masterKey) {
     try {
+        // Convert to Uint8Array
+        const dataArray = new Uint8Array(encryptedDataWithIV);
+
+        // Extract IV (first 12 bytes)
+        const iv = dataArray.slice(0, 12);
+
+        // Extract encrypted data (remaining bytes)
+        const encryptedData = dataArray.slice(12);
+
         // Decode master key from base64
         const keyData = Uint8Array.from(atob(masterKey), c => c.charCodeAt(0));
 
@@ -77,9 +91,6 @@ export async function decryptFile(encryptedData, masterKey, ivBase64) {
             false,
             ['decrypt']
         );
-
-        // Decode IV from base64
-        const iv = Uint8Array.from(atob(ivBase64), c => c.charCodeAt(0));
 
         // Decrypt file
         const decryptedBuffer = await window.crypto.subtle.decrypt(

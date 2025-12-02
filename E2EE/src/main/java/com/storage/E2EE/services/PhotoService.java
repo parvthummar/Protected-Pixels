@@ -18,14 +18,26 @@ public class PhotoService {
     @Autowired
     private PhotoRepository photoRepository;
 
-    // Already exists:
     // Check if filename exists for user
     public boolean filenameExists(String username, String filename) {
         return photoRepository.existsByOwnerUsernameAndFilename(username, filename);
     }
 
-    // savePhoto(...)
-    // getPhoto(...)
+    // Get file contents by filename for user (optimized with direct query)
+    public byte[] getFile(String username, String filename) throws Exception {
+        Photos photo = photoRepository.findByOwnerUsernameAndFilename(username, filename);
+
+        if (photo == null) {
+            return null;
+        }
+
+        File file = new File(photo.getStoragePath());
+        if (!file.exists()) {
+            return null;
+        }
+
+        return Files.readAllBytes(Paths.get(photo.getStoragePath()));
+    }
 
     public List<Photos> listUserPhotos(String username) {
         return photoRepository.findByOwnerUsername(username);

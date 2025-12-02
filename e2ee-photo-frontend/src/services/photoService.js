@@ -72,7 +72,7 @@ export async function uploadPhoto(encryptedFile, filename, username, token, onPr
 }
 
 /**
- * List user's photos (for future use)
+ * List user's photos
  * @param {string} token - JWT authentication token
  * @returns {Promise<Array>} List of photos
  */
@@ -97,7 +97,7 @@ export async function listPhotos(token) {
 }
 
 /**
- * Delete a photo (for future use)
+ * Delete a photo
  * @param {number} photoId - Photo ID to delete
  * @param {string} token - JWT authentication token
  * @returns {Promise<Object>} Delete response
@@ -122,8 +122,35 @@ export async function deletePhoto(photoId, token) {
     }
 }
 
+/**
+ * Download encrypted photo from server
+ * @param {string} filename - Filename to download
+ * @param {string} token - JWT authentication token
+ * @returns {Promise<ArrayBuffer>} Encrypted file data
+ */
+export async function downloadPhoto(filename, token) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/secure/photos/download/${encodeURIComponent(filename)}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to download photo: ${response.statusText}`);
+        }
+
+        return await response.arrayBuffer();
+    } catch (error) {
+        console.error('Download photo error:', error);
+        throw error;
+    }
+}
+
 export default {
     uploadPhoto,
     listPhotos,
-    deletePhoto
+    deletePhoto,
+    downloadPhoto
 };
